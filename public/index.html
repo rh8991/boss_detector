@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>הבוס במשרד?</title>
+<meta name="description" content="האם הבוס במשרד עכשיו, ואם כן — פנוי או עסוק. מתעדכן בזמן אמת.">
+<meta name="theme-color" content="#E4E7EC" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#171C26" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="/icons/192.png">
+<link rel="apple-touch-icon" href="/icons/192.png">
+<meta name="apple-mobile-web-app-title" content="הבוס במשרד?">
+<link rel="preload" as="image" href="/img/in-free-coffee.webp" type="image/webp">
+<link rel="preload" as="image" href="/img/in-busy-laptop.webp" type="image/webp">
+<link rel="preload" as="image" href="/img/out-empty-chair.webp" type="image/webp">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Secular+One&family=Assistant:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script src="/app.js" defer></script>
+</head>
+<body>
+<main>
+  <section class="plate" aria-live="polite" aria-labelledby="state">
+    <span class="screw l" aria-hidden="true"></span><span class="screw r" aria-hidden="true"></span>
+    <p class="who">הבוס</p>
+    <div class="lamp" id="lamp" role="img" aria-hidden="true"></div>
+    <h1 class="state" id="state">טוען…</h1>
+    <p class="sub" id="sub"></p>
+    <p class="note" id="note"></p>
+    <p class="meta" id="meta"></p>
+
+    <div class="controls" id="controls" hidden>
+      <div class="row" role="group" aria-label="מיקום">
+        <button type="button" data-s="in" aria-pressed="false">במשרד</button>
+        <button type="button" data-s="out" aria-pressed="false">לא במשרד</button>
+      </div>
+      <div class="row avail" id="availRow" role="group" aria-label="זמינות" hidden>
+        <button type="button" data-a="free" aria-pressed="false">פנוי</button>
+        <button type="button" data-a="busy" aria-pressed="false">עסוק</button>
+      </div>
+      <div class="noteRow">
+        <label for="noteInput" class="sr-only">הערה</label>
+        <input id="noteInput" maxlength="80" autocomplete="off" placeholder="הערה, למשל: חוזר ב־14:00">
+        <button id="saveNote" type="button">עדכן הערה</button>
+      </div>
+    </div>
+    <p class="err" id="err" role="alert"></p>
+  </section>
+  <p class="hint" id="hint"></p>
+  <a href="#" class="logout" id="logout" hidden>יציאה ממצב עריכה</a>
+</main>
+</body>
+</html>
