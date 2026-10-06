@@ -2,7 +2,7 @@
 
 > **בקצרה:** אתר קטן שמראה בזמן אמת אם הבוס במשרד, ואם כן — פנויה או עסוקה.
 > - **דף הצופים:** `https://rh8991.github.io/boss_detector/` — רק מציג, מתעדכן לבד.
-> - **דף הבוס:** `https://rh8991.github.io/boss_detector/boss.html` — נכנסים פעם אחת עם קוד ומעדכנים בלחיצה.
+> - **דף הבוס:** `https://rh8991.github.io/boss_detector/boss.html` — מעדכנים בלחיצה, בלי קוד.
 > - **אוטומטי מהאייפון:** כשהבוס מגיעה/יוצאת מהמשרד הסטטוס מתעדכן לבד — ראו [docs/iphone-shortcuts.md](docs/iphone-shortcuts.md).
 >
 > הדפים יושבים ב-GitHub Pages; השרת (שמירת הסטטוס ועדכון חי) רץ על Cloudflare Workers בחינם.
@@ -28,12 +28,13 @@ plus an optional short note ("חוזר ב־14:00"). Every open page updates with
   the `workers.dev` URL works as a fallback.
 - One **Durable Object** stores the status and pushes changes to every open page over
   **Server-Sent Events**; pages fall back to polling every 30 s if SSE is blocked.
-- Two secrets: `EDITOR_TOKEN` (the boss's sign-in code) and `HOOK_TOKEN` (the iPhone automation).
+- No sign-in: anyone who opens the boss page can update the status. One secret, `HOOK_TOKEN`,
+  protects the iPhone automation endpoint.
 
 ```
 public/        index.html + viewer.js (viewer), boss.html + boss.js (boss), app.js (shared),
                config.js (API URL), styles.css, manifest, icons, images
-src/index.ts   routing, CORS, auth, rate limit → Durable Object
+src/index.ts   routing, CORS, hook token check, rate limit → Durable Object
 src/status-do.ts  state, SSE fan-out, hook debounce, rate limit counter
 src/validate.ts   pure validation/merge rules
 test/          vitest (runs inside workerd via @cloudflare/vitest-pool-workers)
@@ -53,8 +54,8 @@ npm test                           # vitest
 npm run typecheck
 ```
 
-Open `http://localhost:8787/` (viewer) and `http://localhost:8787/boss.html` (sign in with the
-`EDITOR_TOKEN` from `.dev.vars`) in two windows — changes on the boss page show up on the viewer
+Open `http://localhost:8787/` (viewer) and `http://localhost:8787/boss.html` (boss) in two
+windows — changes on the boss page show up on the viewer
 page immediately. Locally `config.js` is empty, so the pages call the API on the same origin.
 
 ## Deploy (one-time setup, all in the GitHub website)
@@ -66,24 +67,23 @@ Worker to Cloudflare, sets its secrets, and publishes the pages to GitHub Pages 
    overview once so the account gets its `<subdomain>.workers.dev` address.
 2. **Cloudflare API token**: *My Profile → API Tokens → Create Token → template "Edit Cloudflare
    Workers"* → create, copy it. The **Account ID** is on the Workers & Pages overview (right side).
-3. **GitHub repo → Settings → Secrets and variables → Actions → New repository secret**, add four:
+3. **GitHub repo → Settings → Secrets and variables → Actions → New repository secret**, add three:
 
    | secret | value |
    |---|---|
    | `CLOUDFLARE_API_TOKEN` | the token from step 2 |
    | `CLOUDFLARE_ACCOUNT_ID` | the account ID from step 2 |
-   | `EDITOR_TOKEN` | the boss's sign-in code (long and random) |
    | `HOOK_TOKEN` | a different random string, for the iPhone |
 
 4. **GitHub repo → Settings → Pages → Build and deployment → Source: GitHub Actions**.
    GitHub Pages for a *private* repository needs a paid plan (GitHub Pro); on a free account make the
-   repository public (the codes live in secrets, not in the code).
+   repository public (the tokens live in secrets, not in the code).
 5. **Actions → Deploy → Run workflow** (or push to `main`). When it finishes the pages are at
    `https://rh8991.github.io/boss_detector/` and the Worker URL is printed in the *worker* job log.
 
-Changing a code later: update the GitHub secret and re-run the workflow.
+Changing the hook token later: update the GitHub secret and re-run the workflow.
 
-Deploying the Worker by hand instead (`npx wrangler login`, `npx wrangler secret put EDITOR_TOKEN`,
+Deploying the Worker by hand instead (`npx wrangler login`,
 `npx wrangler secret put HOOK_TOKEN`, `npm run deploy`) also works: then skip the Cloudflare secrets
 and set the repository **variable** `BOSS_API_URL` to the Worker URL.
 
@@ -100,16 +100,11 @@ iPhone, with her consent.
 | everyone | `https://rh8991.github.io/boss_detector/` | the status card, updates live, read-only |
 | the boss | `https://rh8991.github.io/boss_detector/boss.html` | the same card + buttons to update it |
 
-On the boss page she enters the editor code once; the browser remembers it ("התנתקות" forgets it).
-Shortcut: `boss.html?key=<EDITOR_TOKEN>` signs in directly and removes the code from the address bar.
-The viewer page has no editing code at all.
+There is no sign-in: anyone who opens the boss page can change the status. The viewer page has no
+link to it and has no buttons, so share the boss link only with the boss. If that ever becomes a
+problem, a sign-in code can be added back.
 
-Note: every project site under `rh8991.github.io` shares one browser origin, so other GitHub Pages
-sites of this account could read the remembered code. Fine for a personal account; use a custom
-domain if that matters.
-
-Add to home screen: open the page in Safari → Share → *Add to Home Screen*. On iPhone the
-home-screen app keeps its own storage, so sign in once more inside it.
+Add to home screen: open the page in Safari → Share → *Add to Home Screen*.
 
 ## API
 
@@ -123,9 +118,8 @@ Status object:
 |---|---|---|---|
 | GET | `/api/status` | none | current status, `204` if never set |
 | GET | `/api/stream` | none | SSE: `event: status` with the current status on connect and on every change; `: ping` every 25 s |
-| POST | `/api/status` | `Authorization: Bearer <EDITOR_TOKEN>` | partial `{state?, avail?, note?}` merged into the current status; returns the new status |
+| POST | `/api/status` | none | partial `{state?, avail?, note?}` merged into the current status; returns the new status |
 | POST | `/api/hook?token=<HOOK_TOKEN>` | query token | `{"event":"enter"}` → in & free, `{"event":"exit"}` → out; `source: "geofence"` |
-| GET | `/api/auth/check` | Bearer token | `200` if the editor token is valid, else `401` |
 
 Rules:
 
@@ -136,13 +130,13 @@ Rules:
 - `/api/hook` is ignored (`200 {"ignored": true, "reason": …}`) if the same event was applied less
   than 5 minutes ago, or if the status was updated manually in the last 15 minutes — a manual
   choice always beats GPS flapping.
-- Write endpoints (and `/api/auth/check`) allow 30 requests per minute per IP, then `429`.
-- Tokens are compared in constant time. CORS is allowed only for `ALLOWED_ORIGINS`.
+- Write endpoints allow 30 requests per minute per IP, then `429`.
+- The hook token is compared in constant time. CORS is allowed only for `ALLOWED_ORIGINS`.
 
 Example:
 
 ```sh
 curl -X POST https://…/api/status \
-  -H "Authorization: Bearer $EDITOR_TOKEN" -H "content-type: application/json" \
+  -H "content-type: application/json" \
   -d '{"state":"out","note":"חוזר ב־14:00"}'
 ```

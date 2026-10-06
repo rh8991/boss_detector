@@ -5,7 +5,7 @@ name: Deploy
 #
 # Repository secrets used (Settings → Secrets and variables → Actions → Secrets):
 #   CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID  – deploy the Worker
-#   EDITOR_TOKEN, HOOK_TOKEN                     – pushed to the Worker as its secrets
+#   HOOK_TOKEN                                   – pushed to the Worker as its secret
 # Optional repository variable:
 #   BOSS_API_URL – Worker URL; only needed when the Worker is deployed some other way.
 on:
@@ -41,7 +41,6 @@ jobs:
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      EDITOR_TOKEN: ${{ secrets.EDITOR_TOKEN }}
       HOOK_TOKEN: ${{ secrets.HOOK_TOKEN }}
     steps:
       - if: env.CLOUDFLARE_API_TOKEN == ''
@@ -63,10 +62,9 @@ jobs:
           url=$(grep -oE 'https://[A-Za-z0-9.-]+\.workers\.dev' deploy.log | head -1)
           echo "url=$url" >> "$GITHUB_OUTPUT"
           echo "Worker URL: $url"
-      - name: Set Worker secrets
+      - name: Set Worker secret
         if: env.CLOUDFLARE_API_TOKEN != ''
         run: |
-          if [ -n "$EDITOR_TOKEN" ]; then printf '%s' "$EDITOR_TOKEN" | npx wrangler secret put EDITOR_TOKEN; else echo "::warning::EDITOR_TOKEN secret not set; the boss page cannot sign in until it is."; fi
           if [ -n "$HOOK_TOKEN" ]; then printf '%s' "$HOOK_TOKEN" | npx wrangler secret put HOOK_TOKEN; else echo "::warning::HOOK_TOKEN secret not set; the iPhone automation cannot update until it is."; fi
 
   pages:

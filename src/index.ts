@@ -24,12 +24,6 @@ async function tokenMatches(given: string | null, expected: string | undefined):
   return crypto.subtle.timingSafeEqual(a, b);
 }
 
-function bearer(request: Request): string | null {
-  const h = request.headers.get("authorization");
-  const m = h?.match(/^Bearer\s+(.+)$/i);
-  return m ? m[1].trim() : null;
-}
-
 async function readJson(request: Request): Promise<unknown> {
   try {
     return await request.json();
@@ -67,7 +61,7 @@ export default {
         headers: {
           "access-control-allow-origin": origin,
           "access-control-allow-methods": "GET, POST, OPTIONS",
-          "access-control-allow-headers": "authorization, content-type",
+          "access-control-allow-headers": "content-type",
           "access-control-max-age": "86400",
           vary: "Origin",
         },
@@ -93,16 +87,9 @@ async function handle(request: Request, env: Env): Promise<Response> {
     case "GET /api/stream":
       return status.fetch(request);
 
-    case "GET /api/auth/check": {
-      if (!(await status.hit(ip))) return error(429, "too many requests");
-      return (await tokenMatches(bearer(request), env.EDITOR_TOKEN))
-        ? json({ ok: true })
-        : error(401, "unauthorized");
-    }
-
     case "POST /api/status": {
+      // No sign-in: anyone with the boss page can update. Rate limited per IP.
       if (!(await status.hit(ip))) return error(429, "too many requests");
-      if (!(await tokenMatches(bearer(request), env.EDITOR_TOKEN))) return error(401, "unauthorized");
       const patch = parsePatch(await readJson(request));
       if (!patch.ok) return error(400, patch.error);
       return json(await status.update(patch.value));
@@ -119,7 +106,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
   }
 
   if (url.pathname.startsWith("/api/")) {
-    const known = ["/api/status", "/api/stream", "/api/auth/check", "/api/hook"].includes(url.pathname);
+    const known = ["/api/status", "/api/stream", "/api/hook"].includes(url.pathname);
     return known ? error(405, "method not allowed") : error(404, "not found");
   }
   return new Response("Not found", { status: 404 });
