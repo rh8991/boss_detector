@@ -4,7 +4,6 @@ import { beforeEach, describe, expect, it } from "vitest";
 import type { Status } from "../src/validate";
 
 const BASE = "https://boss.example";
-const EDITOR = "test-editor-token";
 const HOOK = "test-hook-token";
 
 let ipCounter = 0;
@@ -16,10 +15,12 @@ function call(path: string, init: RequestInit = {}): Promise<Response> {
   return exports.default.fetch(new Request(BASE + path, { ...init, headers }));
 }
 
-function post(body: unknown, token: string | null = EDITOR): Promise<Response> {
-  const headers: Record<string, string> = { "content-type": "application/json" };
-  if (token !== null) headers.authorization = `Bearer ${token}`;
-  return call("/api/status", { method: "POST", headers, body: JSON.stringify(body) });
+function post(body: unknown): Promise<Response> {
+  return call("/api/status", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
 }
 
 function hook(event: string, token = HOOK): Promise<Response> {
@@ -57,13 +58,10 @@ describe("GET /api/status", () => {
 });
 
 describe("POST /api/status", () => {
-  it("rejects a missing token with 401", async () => {
-    expect((await post({ state: "in" }, null)).status).toBe(401);
-  });
-
-  it("rejects a wrong token with 401", async () => {
-    expect((await post({ state: "in" }, "nope")).status).toBe(401);
-    expect((await post({ state: "in" }, HOOK)).status).toBe(401);
+  it("needs no sign-in", async () => {
+    const res = await post({ state: "in" });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ state: "in", source: "manual" });
   });
 
   it("rejects an invalid state with 400", async () => {
@@ -74,7 +72,6 @@ describe("POST /api/status", () => {
   it("rejects malformed JSON with 400", async () => {
     const res = await call("/api/status", {
       method: "POST",
-      headers: { authorization: `Bearer ${EDITOR}` },
       body: "{oops",
     });
     expect(res.status).toBe(400);
@@ -105,18 +102,9 @@ describe("POST /api/status", () => {
   });
 });
 
-describe("GET /api/auth/check", () => {
-  it("is 200 for the editor token and 401 otherwise", async () => {
-    expect((await call("/api/auth/check", { headers: { authorization: `Bearer ${EDITOR}` } })).status).toBe(200);
-    expect((await call("/api/auth/check", { headers: { authorization: "Bearer wrong" } })).status).toBe(401);
-    expect((await call("/api/auth/check")).status).toBe(401);
-  });
-});
-
 describe("POST /api/hook", () => {
   it("requires the hook token", async () => {
     expect((await hook("enter", "wrong")).status).toBe(401);
-    expect((await hook("enter", EDITOR)).status).toBe(401);
   });
 
   it("rejects unknown events", async () => {
@@ -228,11 +216,11 @@ describe("CORS for the GitHub Pages site", () => {
   it("answers preflight for an allowed origin", async () => {
     const res = await call("/api/status", {
       method: "OPTIONS",
-      headers: { origin: PAGES, "access-control-request-method": "POST", "access-control-request-headers": "authorization" },
+      headers: { origin: PAGES, "access-control-request-method": "POST", "access-control-request-headers": "content-type" },
     });
     expect(res.status).toBe(204);
     expect(res.headers.get("access-control-allow-origin")).toBe(PAGES);
-    expect(res.headers.get("access-control-allow-headers")).toContain("authorization");
+    expect(res.headers.get("access-control-allow-headers")).toContain("content-type");
   });
 
   it("refuses preflight from other origins", async () => {
@@ -242,7 +230,7 @@ describe("CORS for the GitHub Pages site", () => {
   });
 
   it("adds the CORS header to API and stream responses for allowed origins only", async () => {
-    const ok = await post({ state: "in" }, EDITOR);
+    const ok = await post({ state: "in" });
     expect(ok.headers.get("access-control-allow-origin")).toBeNull();
 
     const got = await call("/api/status", { headers: { origin: PAGES } });
