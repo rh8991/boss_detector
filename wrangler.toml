@@ -1,0 +1,22 @@
+name = "boss-status"
+main = "src/index.ts"
+compatibility_date = "2026-08-01"
+
+# Static files (index.html, app.js, images…) are served straight from ./public.
+# Only /api/* reaches the Worker.
+[assets]
+directory = "./public"
+not_found_handling = "none"
+run_worker_first = ["/api/*"]
+
+# Pages hosted elsewhere (GitHub Pages) that may call the API. Comma-separated origins, no path.
+[vars]
+ALLOWED_ORIGINS = "https://rh8991.github.io"
+
+[[durable_objects.bindings]]
+name = "STATUS"
+class_name = "StatusDO"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["StatusDO"]
