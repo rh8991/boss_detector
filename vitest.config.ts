@@ -6,7 +6,7 @@ export default defineConfig({
     cloudflareTest({
       wrangler: { configPath: "./wrangler.toml" },
       miniflare: {
-        bindings: { EDITOR_TOKEN: "test-editor-token", HOOK_TOKEN: "test-hook-token" },
+        bindings: { EDITOR_TOKEN: "test-editor-token" },
       },
     }),
   ],

@@ -5,7 +5,6 @@ import type { Status } from "../src/validate";
 
 const BASE = "https://boss.example";
 const EDITOR = "test-editor-token";
-const HOOK = "test-hook-token";
 
 let ipCounter = 0;
 let ip = "";
@@ -22,26 +21,8 @@ function post(body: unknown, token: string | null = EDITOR): Promise<Response> {
   return call("/api/status", { method: "POST", headers, body: JSON.stringify(body) });
 }
 
-function hook(event: string, token = HOOK): Promise<Response> {
-  return call(`/api/hook?token=${encodeURIComponent(token)}`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ event }),
-  });
-}
-
 function mainDO() {
   return env.STATUS.get(env.STATUS.idFromName("main"));
-}
-
-/** Shift stored timestamps into the past to simulate elapsed time. */
-async function ageBy(ms: number) {
-  await runInDurableObject(mainDO(), async (_obj, state) => {
-    const s = await state.storage.get<Status>("status");
-    if (s) await state.storage.put("status", { ...s, updatedAt: new Date(Date.parse(s.updatedAt) - ms).toISOString() });
-    const h = await state.storage.get<{ event: string; at: number }>("lastHook");
-    if (h) await state.storage.put("lastHook", { ...h, at: h.at - ms });
-  });
 }
 
 beforeEach(async () => {
@@ -63,7 +44,6 @@ describe("POST /api/status", () => {
 
   it("rejects a wrong token with 401", async () => {
     expect((await post({ state: "in" }, "nope")).status).toBe(401);
-    expect((await post({ state: "in" }, HOOK)).status).toBe(401);
   });
 
   it("rejects an invalid state with 400", async () => {
@@ -113,52 +93,13 @@ describe("GET /api/auth/check", () => {
   });
 });
 
-describe("POST /api/hook", () => {
-  it("requires the hook token", async () => {
-    expect((await hook("enter", "wrong")).status).toBe(401);
-    expect((await hook("enter", EDITOR)).status).toBe(401);
-  });
-
-  it("rejects unknown events", async () => {
-    expect((await hook("teleport")).status).toBe(400);
-  });
-
-  it("applies enter/exit with source geofence", async () => {
-    const s = (await (await hook("enter")).json()) as Status;
-    expect(s).toMatchObject({ state: "in", avail: "free", source: "geofence" });
-    const t = (await (await hook("exit")).json()) as Status;
-    expect(t).toMatchObject({ state: "out", source: "geofence" });
-  });
-
-  it("ignores the same event repeated within 5 minutes", async () => {
-    await hook("enter");
-    const res = await hook("enter");
-    expect(res.status).toBe(200);
-    expect(await res.json()).toMatchObject({ ignored: true });
-
-    await ageBy(5 * 60_000 + 1000);
-    expect(await (await hook("enter")).json()).toMatchObject({ state: "in", source: "geofence" });
-  });
-
-  it("ignores hooks within 15 minutes of a manual update", async () => {
-    await post({ state: "out", note: "ביום חופש" });
-    const res = await hook("enter");
-    expect(res.status).toBe(200);
-    expect(await res.json()).toMatchObject({ ignored: true });
-    expect(await (await call("/api/status")).json()).toMatchObject({ state: "out", source: "manual" });
-
-    await ageBy(15 * 60_000 + 1000);
-    expect(await (await hook("enter")).json()).toMatchObject({ state: "in", source: "geofence" });
-  });
-});
-
 describe("rate limiting", () => {
   it("returns 429 after 30 writes per minute from one IP", async () => {
     for (let i = 0; i < 30; i++) {
       expect((await post({ note: String(i) })).status).toBe(200);
     }
     expect((await post({ note: "one too many" })).status).toBe(429);
-    expect((await hook("enter")).status).toBe(429);
+    expect((await call("/api/auth/check", { headers: { authorization: `Bearer ${EDITOR}` } })).status).toBe(429);
 
     ip = "10.9.9.9";
     expect((await post({ note: "other ip" })).status).toBe(200);
@@ -217,7 +158,7 @@ describe("GET /api/stream", () => {
 
 describe("routing", () => {
   it("returns 405 for wrong methods and 404 for unknown API paths", async () => {
-    expect((await call("/api/hook")).status).toBe(405);
+    expect((await call("/api/auth/check", { method: "POST" })).status).toBe(405);
     expect((await call("/api/nope")).status).toBe(404);
   });
 });

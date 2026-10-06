@@ -103,3 +103,7 @@ input::placeholder{color:var(--muted)}
 .logout[hidden]{display:none}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 @media (prefers-reduced-motion:reduce){.lamp,.state{transition:none}}
+.login{margin-top:22px}
+.login[hidden]{display:none}
+.login label{display:block;text-align:center;font-weight:600;color:var(--muted)}
+.hint a{color:inherit}

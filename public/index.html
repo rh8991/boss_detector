@@ -18,7 +18,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Secular+One&family=Assistant:wght@400;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/styles.css">
-<script src="/app.js" defer></script>
+<script type="module" src="/viewer.js"></script>
 </head>
 <body>
 <main>
@@ -30,26 +30,8 @@
     <p class="sub" id="sub"></p>
     <p class="note" id="note"></p>
     <p class="meta" id="meta"></p>
-
-    <div class="controls" id="controls" hidden>
-      <div class="row" role="group" aria-label="מיקום">
-        <button type="button" data-s="in" aria-pressed="false">במשרד</button>
-        <button type="button" data-s="out" aria-pressed="false">לא במשרד</button>
-      </div>
-      <div class="row avail" id="availRow" role="group" aria-label="זמינות" hidden>
-        <button type="button" data-a="free" aria-pressed="false">פנוי</button>
-        <button type="button" data-a="busy" aria-pressed="false">עסוק</button>
-      </div>
-      <div class="noteRow">
-        <label for="noteInput" class="sr-only">הערה</label>
-        <input id="noteInput" maxlength="80" autocomplete="off" placeholder="הערה, למשל: חוזר ב־14:00">
-        <button id="saveNote" type="button">עדכן הערה</button>
-      </div>
-    </div>
-    <p class="err" id="err" role="alert"></p>
   </section>
-  <p class="hint" id="hint"></p>
-  <a href="#" class="logout" id="logout" hidden>יציאה ממצב עריכה</a>
+  <p class="hint">הדף מתעדכן אוטומטית.</p>
 </main>
 </body>
 </html>

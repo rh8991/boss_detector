@@ -3,7 +3,6 @@
 export type State = "in" | "out";
 export type Avail = "free" | "busy";
 export type Source = "manual" | "geofence";
-export type HookEvent = "enter" | "exit";
 
 export interface Status {
   state: State;
@@ -23,7 +22,6 @@ export const NOTE_MAX = 80;
 
 const STATES: readonly string[] = ["in", "out"];
 const AVAILS: readonly string[] = ["free", "busy"];
-const EVENTS: readonly string[] = ["enter", "exit"];
 
 export type Result<T> = { ok: true; value: T } | { ok: false; error: string };
 
@@ -59,13 +57,6 @@ export function parsePatch(body: unknown): Result<Patch> {
   return { ok: true, value: patch };
 }
 
-export function parseHookEvent(body: unknown): Result<HookEvent> {
-  if (!isObject(body) || typeof body.event !== "string" || !EVENTS.includes(body.event)) {
-    return { ok: false, error: "event must be \"enter\" or \"exit\"" };
-  }
-  return { ok: true, value: body.event as HookEvent };
-}
-
 /**
  * Merges a patch into the current status.
  * Choosing "in" without an explicit `avail` means "just arrived": avail resets to
@@ -81,8 +72,4 @@ export function mergeStatus(current: Status | null, patch: Patch, now: Date, sou
     updatedAt: now.toISOString(),
     source,
   };
-}
-
-export function hookPatch(event: HookEvent): Patch {
-  return event === "enter" ? { state: "in" } : { state: "out" };
 }

@@ -1,4 +1,3 @@
 # Copy to .dev.vars for local development. In production use `wrangler secret put`.
-# Use two different long random strings, e.g. `openssl rand -hex 24`.
+# The boss's sign-in code: a long random string, e.g. `openssl rand -hex 24`.
 EDITOR_TOKEN=change-me-editor-token
-HOOK_TOKEN=change-me-hook-token

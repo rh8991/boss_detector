@@ -1,4 +1,4 @@
-import { parseHookEvent, parsePatch } from "./validate";
+import { parsePatch } from "./validate";
 
 export { StatusDO } from "./status-do";
 
@@ -72,19 +72,10 @@ export default {
         if (!patch.ok) return error(400, patch.error);
         return json(await status.update(patch.value));
       }
-
-      case "POST /api/hook": {
-        if (!(await status.hit(ip))) return error(429, "too many requests");
-        if (!(await tokenMatches(url.searchParams.get("token"), env.HOOK_TOKEN))) return error(401, "unauthorized");
-        const event = parseHookEvent(await readJson(request));
-        if (!event.ok) return error(400, event.error);
-        const result = await status.hook(event.value);
-        return json(result.ignored ? result : result.status);
-      }
     }
 
     if (url.pathname.startsWith("/api/")) {
-      const known = ["/api/status", "/api/stream", "/api/auth/check", "/api/hook"].includes(url.pathname);
+      const known = ["/api/status", "/api/stream", "/api/auth/check"].includes(url.pathname);
       return known ? error(405, "method not allowed") : error(404, "not found");
     }
     return new Response("Not found", { status: 404 });
