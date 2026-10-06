@@ -37,7 +37,7 @@ src/index.ts   routing, CORS, auth, rate limit → Durable Object
 src/status-do.ts  state, SSE fan-out, hook debounce, rate limit counter
 src/validate.ts   pure validation/merge rules
 test/          vitest (runs inside workerd via @cloudflare/vitest-pool-workers)
-.github/workflows/deploy.yml  test → GitHub Pages (+ Worker if a Cloudflare token is set)
+.github/workflows/deploy.yml  test → Worker (+ its secrets) → GitHub Pages
 docs/iphone-shortcuts.md      iPhone automation setup (Hebrew)
 ```
 
@@ -57,38 +57,41 @@ Open `http://localhost:8787/` (viewer) and `http://localhost:8787/boss.html` (si
 `EDITOR_TOKEN` from `.dev.vars`) in two windows — changes on the boss page show up on the viewer
 page immediately. Locally `config.js` is empty, so the pages call the API on the same origin.
 
-## Deploy (one-time setup)
+## Deploy (one-time setup, all in the GitHub website)
 
-### 1. The Worker (API)
+The **Deploy** workflow does everything on each push to `main`: runs the tests, deploys the
+Worker to Cloudflare, sets its secrets, and publishes the pages to GitHub Pages pointed at it.
 
-```sh
-npx wrangler login
-npx wrangler secret put EDITOR_TOKEN   # the boss's sign-in code (long and random, e.g. `openssl rand -hex 16`)
-npx wrangler secret put HOOK_TOKEN     # a different random string, for the iPhone
-npm run deploy                         # prints https://boss-status.<subdomain>.workers.dev
-```
+1. **Cloudflare account** (free): sign up at dash.cloudflare.com. Under *Workers & Pages* open the
+   overview once so the account gets its `<subdomain>.workers.dev` address.
+2. **Cloudflare API token**: *My Profile → API Tokens → Create Token → template "Edit Cloudflare
+   Workers"* → create, copy it. The **Account ID** is on the Workers & Pages overview (right side).
+3. **GitHub repo → Settings → Secrets and variables → Actions → New repository secret**, add four:
 
-Keep both codes somewhere safe (a password manager) — Cloudflare won't show them again.
-The free Workers plan is enough (SQLite-backed Durable Objects are included).
+   | secret | value |
+   |---|---|
+   | `CLOUDFLARE_API_TOKEN` | the token from step 2 |
+   | `CLOUDFLARE_ACCOUNT_ID` | the account ID from step 2 |
+   | `EDITOR_TOKEN` | the boss's sign-in code (long and random) |
+   | `HOOK_TOKEN` | a different random string, for the iPhone |
+
+4. **GitHub repo → Settings → Pages → Build and deployment → Source: GitHub Actions**.
+   GitHub Pages for a *private* repository needs a paid plan (GitHub Pro); on a free account make the
+   repository public (the codes live in secrets, not in the code).
+5. **Actions → Deploy → Run workflow** (or push to `main`). When it finishes the pages are at
+   `https://rh8991.github.io/boss_detector/` and the Worker URL is printed in the *worker* job log.
+
+Changing a code later: update the GitHub secret and re-run the workflow.
+
+Deploying the Worker by hand instead (`npx wrangler login`, `npx wrangler secret put EDITOR_TOKEN`,
+`npx wrangler secret put HOOK_TOKEN`, `npm run deploy`) also works: then skip the Cloudflare secrets
+and set the repository **variable** `BOSS_API_URL` to the Worker URL.
 
 If the GitHub Pages address is not `https://rh8991.github.io`, change `ALLOWED_ORIGINS` in
-`wrangler.toml` (comma-separated origins, no path) and deploy again.
+`wrangler.toml` (comma-separated origins, no path).
 
-### 2. GitHub Pages (the pages)
-
-1. Repo **Settings → Pages → Build and deployment → Source: GitHub Actions**.
-2. Repo **Settings → Secrets and variables → Actions → Variables → New repository variable**:
-   `BOSS_API_URL` = the Worker URL from step 1 (e.g. `https://boss-status.<subdomain>.workers.dev`).
-3. Merge to `main` (or run the **Deploy** workflow manually). The workflow runs the tests and
-   publishes `public/` to `https://rh8991.github.io/boss_detector/`.
-
-Optional — let the same workflow deploy the Worker on every push to `main`: add repository
-**secrets** `CLOUDFLARE_API_TOKEN` (template "Edit Cloudflare Workers") and `CLOUDFLARE_ACCOUNT_ID`.
-Without them the Worker job just skips. Secrets set with `wrangler secret put` persist across deploys.
-
-### 3. The iPhone
-
-Follow [docs/iphone-shortcuts.md](docs/iphone-shortcuts.md) on the boss's own iPhone, with her consent.
+Then set up the iPhone with [docs/iphone-shortcuts.md](docs/iphone-shortcuts.md) — on the boss's own
+iPhone, with her consent.
 
 ## The pages
 
