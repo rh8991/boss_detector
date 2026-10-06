@@ -4,5 +4,9 @@ declare namespace Cloudflare {
     EDITOR_TOKEN: string;
     HOOK_TOKEN: string;
   }
+  interface GlobalProps {
+    mainModule: typeof import("./index");
+    durableNamespaces: "StatusDO";
+  }
 }
 interface Env extends Cloudflare.Env {}
