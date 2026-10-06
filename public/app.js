@@ -1,11 +1,15 @@
-// Shared by the viewer page (/) and the boss page (/boss): renders the door plate
-// and keeps it live via SSE, falling back to polling.
+// Shared by the viewer page (index.html) and the boss page (boss.html): renders the door
+// plate and keeps it live via SSE, falling back to polling.
+import { API_BASE } from "./config.js";
 
 const LABEL = { in: "במשרד", out: "לא במשרד" };
 const AVAIL = { free: "פנוי", busy: "עסוק" };
-const IMG = { out: "/img/out-empty-chair.webp", busy: "/img/in-busy-laptop.webp", free: "/img/in-free-coffee.webp" };
+const IMG = { out: "img/out-empty-chair.webp", busy: "img/in-busy-laptop.webp", free: "img/in-free-coffee.webp" };
 const ALT = { out: "כיסא ריק", busy: "עובדת מול המחשב", free: "עם כוס קפה" };
 const POLL_MS = 30_000;
+
+/** Absolute URL of an API path; same origin unless config.js points at a Worker elsewhere. */
+export const api = (path) => API_BASE.replace(/\/+$/, "") + path;
 
 export const $ = (id) => document.getElementById(id);
 const plate = document.querySelector(".plate");
@@ -57,7 +61,9 @@ export function render() {
     $("state").textContent = LABEL[current.state] || "—";
     $("sub").textContent = current.state === "in" ? AVAIL[current.avail] || "" : "";
     $("note").textContent = current.note || "";
-    $("meta").textContent = current.updatedAt ? `עודכן ${ago(current.updatedAt)}` : "";
+    $("meta").textContent = current.updatedAt
+      ? `עודכן ${ago(current.updatedAt)}${current.source === "geofence" ? " (אוטומטי)" : ""}`
+      : "";
   }
   listeners.forEach((fn) => fn(current));
 }
@@ -72,7 +78,7 @@ setInterval(() => { if (current && current.updatedAt) render(); }, 60_000);
 
 async function fetchStatus() {
   try {
-    const res = await fetch("/api/status", { cache: "no-store" });
+    const res = await fetch(api("/api/status"), { cache: "no-store" });
     if (res.status === 204) setStatus(null);
     else if (res.ok) setStatus(await res.json());
   } catch {}
@@ -92,7 +98,7 @@ function stopPolling() {
 export function connect() {
   fetchStatus();
   if (!("EventSource" in window)) { startPolling(); return; }
-  const es = new EventSource("/api/stream");
+  const es = new EventSource(api("/api/stream"));
   es.addEventListener("status", (e) => {
     try { setStatus(JSON.parse(e.data)); } catch {}
   });

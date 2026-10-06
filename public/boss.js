@@ -1,5 +1,5 @@
-// Boss page (/boss): sign in once with the editor code, then update the status.
-import { $, connect, getStatus, onRender, setStatus } from "./app.js";
+// Boss page (boss.html): sign in once with the editor code, then update the status.
+import { $, api, connect, getStatus, onRender, setStatus } from "./app.js";
 
 const TOKEN_KEY = "bossStatus.editorToken";
 let token = null;
@@ -17,7 +17,7 @@ function showSignedIn(on) {
 }
 
 async function check(t) {
-  const res = await fetch("/api/auth/check", { headers: { authorization: `Bearer ${t}` }, cache: "no-store" });
+  const res = await fetch(api("/api/auth/check"), { headers: { authorization: `Bearer ${t}` }, cache: "no-store" });
   return res.status;
 }
 
@@ -53,7 +53,7 @@ async function write(patch) {
     source: "manual",
   });
   try {
-    const res = await fetch("/api/status", {
+    const res = await fetch(api("/api/status"), {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
       body: JSON.stringify(patch),
@@ -117,7 +117,7 @@ $("logout").addEventListener("click", (e) => {
 
 (async function boot() {
   connect();
-  // Optional shortcut: /boss?key=<code> signs in and strips the code from the address bar.
+  // Optional shortcut: boss.html?key=<code> signs in and strips the code from the address bar.
   const url = new URL(location.href);
   const key = url.searchParams.get("key");
   if (key) {

@@ -1,9 +1,18 @@
 import { DurableObject } from "cloudflare:workers";
-import { mergeStatus, type Patch, type Status } from "./validate";
+import { hookPatch, mergeStatus, type HookEvent, type Patch, type Status } from "./validate";
 
+export const HOOK_REPEAT_MS = 5 * 60_000;
+export const MANUAL_WINS_MS = 15 * 60_000;
 export const RATE_LIMIT = 30;
 const RATE_WINDOW_MS = 60_000;
 const PING_MS = 25_000;
+
+interface LastHook {
+  event: HookEvent;
+  at: number;
+}
+
+export type HookResult = { ignored: false; status: Status } | { ignored: true; reason: string };
 
 const encoder = new TextEncoder();
 
@@ -34,6 +43,22 @@ export class StatusDO extends DurableObject<Env> {
     const next = mergeStatus(await this.getStatus(), patch, new Date(), "manual");
     await this.save(next);
     return next;
+  }
+
+  async hook(event: HookEvent): Promise<HookResult> {
+    const now = Date.now();
+    const current = await this.getStatus();
+    const last = await this.ctx.storage.get<LastHook>("lastHook");
+    if (last && last.event === event && now - last.at < HOOK_REPEAT_MS) {
+      return { ignored: true, reason: `same event applied less than ${HOOK_REPEAT_MS / 60_000} minutes ago` };
+    }
+    if (current?.source === "manual" && now - Date.parse(current.updatedAt) < MANUAL_WINS_MS) {
+      return { ignored: true, reason: `manual update less than ${MANUAL_WINS_MS / 60_000} minutes ago` };
+    }
+    const next = mergeStatus(current, hookPatch(event), new Date(now), "geofence");
+    await this.ctx.storage.put<LastHook>("lastHook", { event, at: now });
+    await this.save(next);
+    return { ignored: false, status: next };
   }
 
   /** Only used for GET /api/stream: returns a Server-Sent Events response. */

@@ -1,4 +1,4 @@
-// Viewer page (/): read-only, live.
+// Viewer page (index.html): read-only, live.
 import { connect } from "./app.js";
 
 connect();

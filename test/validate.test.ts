@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanNote, mergeStatus, parsePatch, type Status } from "../src/validate";
+import { cleanNote, hookPatch, mergeStatus, parseHookEvent, parsePatch, type Status } from "../src/validate";
 
 const now = new Date("2026-10-06T08:30:00.000Z");
 const busyWithNote: Status = {
@@ -59,8 +59,21 @@ describe("mergeStatus", () => {
   });
 
   it("stamps time and source", () => {
-    const s = mergeStatus(busyWithNote, {}, now, "manual");
+    const s = mergeStatus(busyWithNote, {}, now, "geofence");
     expect(s.updatedAt).toBe(now.toISOString());
-    expect(s.source).toBe("manual");
+    expect(s.source).toBe("geofence");
+  });
+});
+
+describe("hooks", () => {
+  it("parses events", () => {
+    expect(parseHookEvent({ event: "enter" })).toEqual({ ok: true, value: "enter" });
+    expect(parseHookEvent({ event: "arrive" }).ok).toBe(false);
+    expect(parseHookEvent(undefined).ok).toBe(false);
+  });
+
+  it("maps events to patches", () => {
+    expect(mergeStatus(busyWithNote, hookPatch("enter"), now, "geofence")).toMatchObject({ state: "in", avail: "free" });
+    expect(hookPatch("exit")).toEqual({ state: "out" });
   });
 });
